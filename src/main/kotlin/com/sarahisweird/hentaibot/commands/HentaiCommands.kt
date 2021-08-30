@@ -15,13 +15,12 @@ private val sentHashes = mutableListOf<String>()
 @Suppress("BlockingMethodInNonBlockingContext")
 fun hentaiCommands() = commands("Hentai") {
     command("r34") {
-        description = "Durchsucht rule34.xxx nach Tags. Du kannst mehrere Tags angeben," +
-                " indem du sie mit '+' trennst."
+        description = "Durchsucht rule34.xxx nach Tags. Du kannst mehrere Tags angeben."
 
-        execute(AnyArg) {
+        execute(AnyArg.multiple()) {
             val request = Request.Builder().url(
                 "https://rule34.xxx/index.php?page=dapi&s=post&q=index" +
-                        "&limit=50&json=1&tags=${args.first}"
+                        "&limit=50&json=1&tags=${args.first.joinToString("+")}"
             ).build()
 
             val response = client.newCall(request).execute()
