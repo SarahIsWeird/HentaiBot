@@ -13,3 +13,9 @@ b
 2src/main/kotlin/com/sarahisweird/hentaibot/Main.kt,8/b/8b3b60fb8a4b6e69e468ea2af6428d4a95f551f3
 }
 Msrc/main/kotlin/com/sarahisweird/hentaibot/commands/AdministrationCommands.kt,5/7/57f8742d71a84d9065215b16ae2df730d6ba58ff
+g
+7src/main/kotlin/com/sarahisweird/hentaibot/EntryMenu.kt,c/3/c39234aa53b36e954776691c22b5f9fc9f05c478
+A
+gradle.properties,2/a/2afbb999f001938c88fa43fc2ef52abf0f8213e4
+h
+8src/main/kotlin/com/sarahisweird/hentaibot/data/Image.kt,d/0/d00c2dfaac16ecf0fd2734957ae5178c1a8406e2

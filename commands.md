@@ -14,7 +14,6 @@
 ## Hentai
 | Commands    | Arguments | Description                                                      |
 | ----------- | --------- | ---------------------------------------------------------------- |
-| raw34       | Any...    |                                                                  |
 | rule34, r34 | Any...    | Durchsucht rule34.xxx nach Tags. Du kannst mehrere Tags angeben. |
 
 ## Utility
