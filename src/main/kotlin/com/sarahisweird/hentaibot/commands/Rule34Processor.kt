@@ -30,7 +30,7 @@ suspend fun <T : TypeContainer> CommandEvent<T>.fetchRandomImages(
     val bodyContent = getResponse(client, tags)
 
     if (bodyContent == null) {
-        respond("Das hat nicht geklappt. :(")
+        respond("Es wurde nix gefunden :(")
         return null
     }
 
