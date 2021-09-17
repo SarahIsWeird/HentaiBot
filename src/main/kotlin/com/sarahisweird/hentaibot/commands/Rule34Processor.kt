@@ -19,6 +19,7 @@ import java.awt.Color
 import java.awt.Graphics
 import java.io.InputStream
 import kotlin.concurrent.thread
+import kotlin.math.ceil
 
 suspend fun <T : TypeContainer> CommandEvent<T>.fetchRandomImages(
     client: OkHttpClient,
@@ -90,7 +91,7 @@ private fun <T : TypeContainer> CommandEvent<T>.tryResizeImage(
 @OptIn(KordPreview::class)
 fun MessageCreateBuilder.createButtons(images: List<Image>) {
     // indexed to deduplicate forEach label kekw
-    (0 until 3).forEachIndexed { _, y ->
+    (0 until ceil(images.size / 4f).toInt()).forEachIndexed { _, y ->
         actionRow {
             (0 until 4).forEach { x ->
                 val index = x + y * 4

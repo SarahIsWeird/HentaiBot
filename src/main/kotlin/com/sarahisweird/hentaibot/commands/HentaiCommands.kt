@@ -1,36 +1,21 @@
 package com.sarahisweird.hentaibot.commands
 
 import com.beust.klaxon.Klaxon
-import com.sarahisweird.hentaibot.data.Image
-import com.sarahisweird.hentaibot.multipleRandom
 import com.sarahisweird.hentaibot.waitUntilDone
-import com.sksamuel.scrimage.ImmutableImage
-import com.sksamuel.scrimage.MutableImage
-import com.sksamuel.scrimage.metadata.ImageMetadata
-import com.sksamuel.scrimage.nio.PngWriter
 import dev.kord.common.annotation.KordPreview
-import dev.kord.common.entity.Snowflake
 import dev.kord.core.behavior.channel.createMessage
 import dev.kord.core.behavior.interaction.respondPublic
 import dev.kord.core.entity.interaction.ComponentInteraction
 import dev.kord.core.event.interaction.InteractionCreateEvent
-import dev.kord.x.emoji.Emojis
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.runBlocking
 import me.jakejmattson.discordkt.api.arguments.AnyArg
-import me.jakejmattson.discordkt.api.arguments.MultipleArg
 import me.jakejmattson.discordkt.api.dsl.commands
 import me.jakejmattson.discordkt.api.dsl.listeners
-import me.jakejmattson.discordkt.api.extensions.addField
-import me.jakejmattson.discordkt.api.extensions.addInlineField
-import me.jakejmattson.discordkt.api.extensions.button
 import okhttp3.OkHttpClient
-import okhttp3.Request
-import java.awt.Color
 import java.awt.image.BufferedImage
-import java.io.*
+import java.io.File
+import java.lang.Integer.min
 import javax.imageio.ImageIO
-import kotlin.concurrent.thread
+import kotlin.math.ceil
 
 private val client = OkHttpClient()
 private val klaxon = Klaxon()
@@ -54,8 +39,8 @@ fun hentaiCommands() = commands("Hentai") {
             ) ?: return@execute
 
             val compositeImage = BufferedImage(
-                800,
-                600,
+                min(800, images.size * 200),
+                min(600, ceil(images.size / 4f).toInt() * 200),
                 BufferedImage.TYPE_INT_ARGB
             )
 
