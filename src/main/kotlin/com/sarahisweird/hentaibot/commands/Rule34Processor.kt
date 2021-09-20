@@ -53,6 +53,13 @@ private fun buildRequest(tags: List<String>) =
 private fun getResponse(client: OkHttpClient, tags: List<String>) =
     client.newCall(buildRequest(tags)).execute().body?.string().takeIf { it != "" }
 
+private fun buildTagRequest(id: Int) =
+    Request.Builder().url("https://rule34.xxx/index.php?page=dapi&s=post&q=index" +
+            "&json=1&id=$id").build()
+
+fun getTagResponse(client: OkHttpClient, id: Int) =
+    client.newCall(buildTagRequest(id)).execute().body?.string().takeIf { it != "" }
+
 fun <T : TypeContainer> CommandEvent<T>.createStitchingThread(
     client: OkHttpClient,
     image: Image,
@@ -97,8 +104,8 @@ fun MessageCreateBuilder.createButtons(images: List<Image>) {
                 val index = x + y * 4
                 val image = images.getOrNull(index) ?: return@forEach
 
-                button("Bild ${index + 1}", Emojis.link) {
-                    customId = "r34-${image.directory}-${image.image}"
+                button("Bild ${index + 1}", Emojis.mag) {
+                    customId = "r34-${image.directory}-${image.image}-${image.id}"
                 }
             }
         }

@@ -7,9 +7,12 @@ import dev.kord.core.behavior.channel.createMessage
 import dev.kord.core.behavior.interaction.respondPublic
 import dev.kord.core.entity.interaction.ComponentInteraction
 import dev.kord.core.event.interaction.InteractionCreateEvent
+import dev.kord.rest.builder.interaction.actionRow
+import dev.kord.x.emoji.Emojis
 import me.jakejmattson.discordkt.api.arguments.AnyArg
 import me.jakejmattson.discordkt.api.dsl.commands
 import me.jakejmattson.discordkt.api.dsl.listeners
+import me.jakejmattson.discordkt.api.extensions.button
 import okhttp3.OkHttpClient
 import java.awt.image.BufferedImage
 import java.io.File
@@ -75,12 +78,28 @@ fun hentaiCommands() = commands("Hentai") {
 fun hentaiCommandListener() = listeners {
     on<InteractionCreateEvent> {
         val ci = interaction as? ComponentInteraction ?: return@on
-        if (!ci.componentId.startsWith("r34-")) return@on
 
-        val split = ci.componentId.split("-")
+        when {
+            (ci.componentId.startsWith("r34-")) -> {
+                val split = ci.componentId.split("-")
 
-        ci.respondPublic {
-            content = "https://api-cdn.rule34.xxx/images/${split[1]}/${split[2]}"
+                ci.respondPublic {
+                    content = "https://api-cdn.rule34.xxx/images/${split[1]}/${split[2]}"
+
+                    actionRow {
+                        button("Link", Emojis.link) {
+                            customId = "r34l-${split[3]}"
+                        }
+                    }
+                }
+            }
+            (ci.componentId.startsWith("r34l-")) -> {
+                val split = ci.componentId.split("-")
+
+                ci.respondPublic {
+                    content = "https://rule34.xxx/index.php?page=post&s=view&id=${split[1]}"
+                }
+            }
         }
     }
 }
