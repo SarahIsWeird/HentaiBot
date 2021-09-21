@@ -15,6 +15,8 @@ val discordKtVersion: String by project
 val okHttpVersion: String by project
 val klaxonVersion: String by project
 val scrimageVersion: String by project
+val exposedVersion: String by project
+val mysqlConnectorVersion: String by project
 
 dependencies {
     implementation("me.jakejmattson:DiscordKt:$discordKtVersion")
@@ -24,6 +26,12 @@ dependencies {
     implementation("com.beust:klaxon:$klaxonVersion")
 
     implementation("com.sksamuel.scrimage:scrimage-core:$scrimageVersion")
+
+    implementation("org.jetbrains.exposed:exposed-core:$exposedVersion")
+    implementation("org.jetbrains.exposed:exposed-dao:$exposedVersion")
+    implementation("org.jetbrains.exposed:exposed-jdbc:$exposedVersion")
+
+    implementation("mysql:mysql-connector-java:$mysqlConnectorVersion")
 }
 
 tasks.withType<KotlinCompile>() {

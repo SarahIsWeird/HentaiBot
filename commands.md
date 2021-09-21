@@ -14,6 +14,7 @@
 ## Hentai
 | Commands    | Arguments | Description                                                      |
 | ----------- | --------- | ---------------------------------------------------------------- |
+| Likes       |           | Listet deine geliketen Bilder auf.                               |
 | rule34, r34 | Any...    | Durchsucht rule34.xxx nach Tags. Du kannst mehrere Tags angeben. |
 
 ## Utility

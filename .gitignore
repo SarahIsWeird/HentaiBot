@@ -1,0 +1,5 @@
+.gradle/
+build/
+.idea/dataSources/
+.idea/sonarlint/
+composite.png

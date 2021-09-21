@@ -1,4 +1,4 @@
-package com.sarahisweird.hentaibot
+package com.sarahisweird.hentaibot.util
 
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
