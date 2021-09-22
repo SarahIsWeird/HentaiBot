@@ -1,5 +1,6 @@
 package com.sarahisweird.hentaibot.database
 
+import com.sarahisweird.hentaibot.database.tables.BannedTagsTable
 import com.sarahisweird.hentaibot.database.tables.FavouritesTable
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.SchemaUtils
@@ -20,7 +21,10 @@ object Database {
         )
 
         transaction {
-            SchemaUtils.create(FavouritesTable)
+            SchemaUtils.create(
+                FavouritesTable,
+                BannedTagsTable
+            )
         }
 
         db

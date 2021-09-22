@@ -2,12 +2,14 @@ package com.sarahisweird.hentaibot.commands
 
 import com.beust.klaxon.Klaxon
 import com.sarahisweird.hentaibot.data.Image
+import com.sarahisweird.hentaibot.database.entities.BannedTags
 import com.sarahisweird.hentaibot.database.entities.Favourites
 import com.sarahisweird.hentaibot.database.tables.FavouritesTable
 import com.sarahisweird.hentaibot.util.paginatedMenu
 import com.sarahisweird.hentaibot.util.waitUntilDone
 import dev.kord.common.annotation.KordPreview
 import dev.kord.common.entity.Snowflake
+import dev.kord.common.entity.optional.optional
 import dev.kord.core.behavior.channel.createMessage
 import dev.kord.core.behavior.interaction.*
 import dev.kord.core.entity.interaction.ComponentInteraction
@@ -17,6 +19,7 @@ import dev.kord.x.emoji.Emojis
 import kotlinx.coroutines.runBlocking
 import kotlinx.datetime.Clock
 import me.jakejmattson.discordkt.api.arguments.AnyArg
+import me.jakejmattson.discordkt.api.arguments.EveryArg
 import me.jakejmattson.discordkt.api.dsl.commands
 import me.jakejmattson.discordkt.api.dsl.listeners
 import me.jakejmattson.discordkt.api.extensions.button
@@ -36,7 +39,7 @@ private val client = OkHttpClient()
 private val klaxon = Klaxon()
 
 private val sentHashes = mutableListOf<String>()
-private val tags = mutableMapOf<Int, List<String>>()
+private val tags = mutableListOf<List<String>>()
 
 @OptIn(KordPreview::class)
 private val publicInteractionResponses = mutableMapOf<Snowflake, PublicInteractionResponseBehavior>()
@@ -93,9 +96,14 @@ fun hentaiCommands() = commands("Hentai") {
         execute(AnyArg.multiple()) {
             channel.type()
 
-            val images = createCompositeImageFromTags(args.first, ::respond) ?: return@execute
+            val bannedTags = transaction {
+                BannedTags.findByIdOrPut(author.id, ::mutableListOf).tags
+            }
+            val actualTags = args.first + bannedTags.map { "-$it" }
 
-            tags += tags.size to args.first
+            val images = createCompositeImageFromTags(actualTags, ::respond) ?: return@execute
+
+            tags += actualTags
 
             channel.createMessage {
                 addFile(file.toPath())
@@ -156,6 +164,47 @@ fun hentaiCommands() = commands("Hentai") {
                         }}"
                     }
                 }
+            }
+        }
+    }
+
+    command("bannedTags", "bt", "blacklist", "bl") {
+        description = "Modifiziert deine Tag-Blacklist."
+
+        execute(AnyArg.optional(""), AnyArg.multiple()) {
+            when (args.first) {
+                "add" -> {
+                    transaction {
+                        val res = BannedTags.findByIdOrPut(author.id, ::mutableListOf)
+
+                        res.tags = (res.tags + args.second.map { it.removePrefix("-") })
+                            .distinct()
+                    }
+
+                    respond("Deine Blacklist wurde geupdated.")
+                }
+                "remove" -> {
+                    transaction {
+                        val res = BannedTags.findByIdOrPut(author.id, ::mutableListOf)
+
+                        res.tags -= args.second
+                    }
+
+                    respond("Deine Blacklist wurde geupdated.")
+                }
+                "show" -> {
+                    val tags = transaction {
+                        BannedTags.findByIdOrPut(author.id, ::mutableListOf).tags
+                    }
+
+                    if (tags.isEmpty()) {
+                        respond("Deine Blacklist ist leer.")
+                        return@execute
+                    }
+
+                    respond("Diese Tags sind in deiner Blacklist: ${tags.joinToString()}")
+                }
+                else -> respond("Das erste Argument muss entweder `add`, `remove` oder `show` sein.")
             }
         }
     }
@@ -274,12 +323,12 @@ suspend fun onImageReload(ci: ComponentInteraction) {
     ci.message?.channel?.type()
     val tagsIndex = split[1].toInt()
 
-    if (tagsIndex !in tags) {
+    if (tagsIndex !in tags.indices) {
         ci.message?.channel?.createMessage("Da ist wohl etwas schiefgelaufen.")
         return
     }
 
-    val images = createCompositeImageFromTags(tags[tagsIndex]!!) {
+    val images = createCompositeImageFromTags(tags[tagsIndex]) {
         ci.message?.channel?.createMessage(it)
     } ?: return
 

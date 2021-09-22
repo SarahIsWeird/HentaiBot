@@ -12,10 +12,11 @@
 | Eintritt |           |             |
 
 ## Hentai
-| Commands    | Arguments | Description                                                      |
-| ----------- | --------- | ---------------------------------------------------------------- |
-| Likes       |           | Listet deine geliketen Bilder auf.                               |
-| rule34, r34 | Any...    | Durchsucht rule34.xxx nach Tags. Du kannst mehrere Tags angeben. |
+| Commands                      | Arguments     | Description                                                      |
+| ----------------------------- | ------------- | ---------------------------------------------------------------- |
+| Likes                         |               | Listet deine geliketen Bilder auf.                               |
+| bannedTags, bt, blacklist, bl | [Any], Any... | Modifiziert deine Tag-Blacklist.                                 |
+| rule34, r34                   | Any...        | Durchsucht rule34.xxx nach Tags. Du kannst mehrere Tags angeben. |
 
 ## Utility
 | Commands | Arguments | Description          |
