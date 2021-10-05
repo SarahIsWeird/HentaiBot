@@ -2,9 +2,11 @@ package com.sarahisweird.hentaibot.commands
 
 import com.beust.klaxon.Klaxon
 import com.sarahisweird.hentaibot.data.Image
+import com.sarahisweird.hentaibot.database.entities.ServerSettings
 import com.sarahisweird.hentaibot.util.multipleRandom
 import com.sksamuel.scrimage.ImmutableImage
 import dev.kord.common.annotation.KordPreview
+import dev.kord.core.entity.Guild
 import dev.kord.rest.builder.component.ActionRowBuilder
 import dev.kord.rest.builder.message.MessageCreateBuilder
 import dev.kord.x.emoji.Emojis
@@ -24,12 +26,13 @@ suspend fun fetchRandomImages(
     klaxon: Klaxon,
     tags: List<String>,
     sentHashes: List<String>,
-    respond: suspend (String) -> Unit
+    respond: suspend (String) -> Unit,
+    guild: Guild?
 ): List<Image>? {
     val bodyContent = getResponse(client, tags)
 
     if (bodyContent == null) {
-        respond("Es wurde nix gefunden :(")
+        respond(ServerSettings.languageOf(guild).noResults)
         return null
     }
 
@@ -38,7 +41,7 @@ suspend fun fetchRandomImages(
     }?.multipleRandom(12).takeIf { it?.size != 0 }
 
     if (images == null) {
-        respond("Es wurde nix gefunden :(")
+        respond(ServerSettings.languageOf(guild).noResults)
         return null
     }
 
@@ -84,6 +87,7 @@ private fun tryResizeImage(imageData: InputStream?) = ImmutableImage.loader().fr
 @OptIn(KordPreview::class)
 fun createButtons(
     images: List<Image>,
+    guild: Guild?,
     actionRow: (ActionRowBuilder.() -> Unit) -> Unit
 ) {
     // indexed to deduplicate forEach label kekw
@@ -93,7 +97,7 @@ fun createButtons(
                 val index = x + y * 4
                 val image = images.getOrNull(index) ?: return@forEach
 
-                button("Bild ${index + 1}", Emojis.mag) {
+                button("${ServerSettings.languageOf(guild).picture} ${index + 1}", Emojis.mag) {
                     customId = "r34-${image.directory}-${image.image}-${image.id}"
                 }
             }

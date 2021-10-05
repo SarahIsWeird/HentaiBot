@@ -2,6 +2,7 @@ package com.sarahisweird.hentaibot.database
 
 import com.sarahisweird.hentaibot.database.tables.BannedTagsTable
 import com.sarahisweird.hentaibot.database.tables.FavouritesTable
+import com.sarahisweird.hentaibot.database.tables.ServerSettingsTable
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.transactions.transaction
@@ -23,7 +24,8 @@ object Database {
         transaction {
             SchemaUtils.create(
                 FavouritesTable,
-                BannedTagsTable
+                BannedTagsTable,
+                ServerSettingsTable
             )
         }
 

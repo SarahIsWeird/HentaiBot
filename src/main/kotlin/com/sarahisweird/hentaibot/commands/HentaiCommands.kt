@@ -4,6 +4,7 @@ import com.beust.klaxon.Klaxon
 import com.sarahisweird.hentaibot.data.Image
 import com.sarahisweird.hentaibot.database.entities.BannedTags
 import com.sarahisweird.hentaibot.database.entities.Favourites
+import com.sarahisweird.hentaibot.database.entities.ServerSettings
 import com.sarahisweird.hentaibot.database.tables.FavouritesTable
 import com.sarahisweird.hentaibot.util.paginatedMenu
 import com.sarahisweird.hentaibot.util.waitUntilDone
@@ -12,6 +13,7 @@ import dev.kord.common.entity.Snowflake
 import dev.kord.common.entity.optional.optional
 import dev.kord.core.behavior.channel.createMessage
 import dev.kord.core.behavior.interaction.*
+import dev.kord.core.entity.Guild
 import dev.kord.core.entity.interaction.ComponentInteraction
 import dev.kord.core.event.interaction.InteractionCreateEvent
 import dev.kord.rest.builder.interaction.actionRow
@@ -51,6 +53,7 @@ private val file = File("composite.png")
 
 suspend fun createCompositeImageFromTags(
     tags: List<String>,
+    guild: Guild?,
     respond: suspend (String) -> Unit
 ): List<Image>? {
     val images = fetchRandomImages(
@@ -58,7 +61,8 @@ suspend fun createCompositeImageFromTags(
         klaxon,
         tags,
         sentHashes,
-        respond
+        respond,
+        guild
     ) ?: return null
 
     val compositeImage = BufferedImage(
@@ -91,7 +95,7 @@ suspend fun createCompositeImageFromTags(
 @Suppress("BlockingMethodInNonBlockingContext")
 fun hentaiCommands() = commands("Hentai") {
     command("rule34", "r34") {
-        description = "Durchsucht rule34.xxx nach Tags. Du kannst mehrere Tags angeben."
+        description = "Searches through rule34.xxx, based on tags. You can specify multiple tags."
 
         execute(AnyArg.multiple()) {
             channel.type()
@@ -101,14 +105,14 @@ fun hentaiCommands() = commands("Hentai") {
             }
             val actualTags = args.first + bannedTags.map { "-$it" }
 
-            val images = createCompositeImageFromTags(actualTags, ::respond) ?: return@execute
+            val images = createCompositeImageFromTags(actualTags, guild, ::respond) ?: return@execute
 
             tags += actualTags
 
             channel.createMessage {
                 addFile(file.toPath())
 
-                createButtons(images, ::actionRow)
+                createButtons(images, guild, ::actionRow)
 
                 actionRow {
                     button(null, Emojis.arrowsCounterclockwise) {
@@ -120,7 +124,7 @@ fun hentaiCommands() = commands("Hentai") {
     }
 
     command("Likes") {
-        description = "Listet deine geliketen Bilder auf."
+        description = "Lists your liked pictures."
 
         execute {
             val likedCount = transaction {
@@ -129,7 +133,7 @@ fun hentaiCommands() = commands("Hentai") {
             }
 
             if (likedCount == 0) {
-                respond("Du hast noch kein Bild geliked!")
+                respond(ServerSettings.languageOf(guild).noLikedPicture)
                 return@execute
             }
 
@@ -143,7 +147,7 @@ fun hentaiCommands() = commands("Hentai") {
                                 "/881886640254095371/9562bd55dfd4969c403c73c69c89b591.webp"
                     }
 
-                    title = "Bild ${next + 1}/${limit + 1}"
+                    title = "${ServerSettings.languageOf(guild).picture} ${next + 1}/${limit + 1}"
 
                     transaction {
                         val res = Favourites.find { FavouritesTable.userId eq forWhom.value }
@@ -169,7 +173,7 @@ fun hentaiCommands() = commands("Hentai") {
     }
 
     command("bannedTags", "bt", "blacklist", "bl") {
-        description = "Modifiziert deine Tag-Blacklist."
+        description = "Modifies your blacklist."
 
         execute(AnyArg.optional(""), AnyArg.multiple()) {
             when (args.first) {
@@ -181,7 +185,7 @@ fun hentaiCommands() = commands("Hentai") {
                             .distinct()
                     }
 
-                    respond("Deine Blacklist wurde geupdated.")
+                    respond(ServerSettings.languageOf(guild).blacklistUpdated)
                 }
                 "remove" -> {
                     transaction {
@@ -190,7 +194,7 @@ fun hentaiCommands() = commands("Hentai") {
                         res.tags -= args.second
                     }
 
-                    respond("Deine Blacklist wurde geupdated.")
+                    respond(ServerSettings.languageOf(guild).blacklistUpdated)
                 }
                 "show" -> {
                     val tags = transaction {
@@ -198,13 +202,13 @@ fun hentaiCommands() = commands("Hentai") {
                     }
 
                     if (tags.isEmpty()) {
-                        respond("Deine Blacklist ist leer.")
+                        respond(ServerSettings.languageOf(guild).emptyBlacklist)
                         return@execute
                     }
 
-                    respond("Diese Tags sind in deiner Blacklist: ${tags.joinToString()}")
+                    respond("${ServerSettings.languageOf(guild).listBlacklist}: ${tags.joinToString()}")
                 }
-                else -> respond("Das erste Argument muss entweder `add`, `remove` oder `show` sein.")
+                else -> respond(ServerSettings.languageOf(guild).invalidFirstBlacklistArgument)
             }
         }
     }
@@ -289,8 +293,8 @@ suspend fun onImageLike(ci: ComponentInteraction) {
     }
 
     interactionResponse.followUpEphemeral {
-        content = if (inserted) "Das Bild wurde zu deinen Favoriten hinzugefügt!"
-        else "Das Bild ist bereits in deinen Favoriten!"
+        content = if (inserted) ServerSettings.languageOf(ci.message?.getGuild()).addedToLikes
+        else ServerSettings.languageOf(ci.message?.getGuild()).alreadyLiked
     }
 }
 
@@ -308,7 +312,7 @@ suspend fun onImageUnlike(ci: ComponentInteraction) {
 
     ci.message?.delete()
     interactionResponse.followUpEphemeral {
-        content = "Der Like wurde entfernt!"
+        content = ServerSettings.languageOf(ci.message?.getGuild()).likeRemoved
     }
 }
 
@@ -324,11 +328,14 @@ suspend fun onImageReload(ci: ComponentInteraction) {
     val tagsIndex = split[1].toInt()
 
     if (tagsIndex !in tags.indices) {
-        ci.message?.channel?.createMessage("Da ist wohl etwas schiefgelaufen.")
+        ci.message?.channel?.createMessage(
+            ServerSettings.languageOf(ci.message?.getGuild()).somethingWentWrong
+        )
+
         return
     }
 
-    val images = createCompositeImageFromTags(tags[tagsIndex]) {
+    val images = createCompositeImageFromTags(tags[tagsIndex], ci.message?.getGuild()) {
         ci.message?.channel?.createMessage(it)
     } ?: return
 
@@ -336,7 +343,7 @@ suspend fun onImageReload(ci: ComponentInteraction) {
         files.clear()
         files += "composite.png" to file.inputStream()
 
-        createButtons(images, ::actionRow)
+        createButtons(images, ci.message?.getGuild(), ::actionRow)
 
         actionRow {
             button(null, Emojis.arrowsCounterclockwise) {
