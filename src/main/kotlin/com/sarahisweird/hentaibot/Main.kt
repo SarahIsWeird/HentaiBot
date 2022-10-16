@@ -2,9 +2,11 @@ package com.sarahisweird.hentaibot
 
 import com.sarahisweird.hentaibot.database.Database
 import dev.kord.common.annotation.KordPreview
-import me.jakejmattson.discordkt.api.dsl.bot
+import dev.kord.gateway.Intents
+import dev.kord.gateway.PrivilegedIntent
+import me.jakejmattson.discordkt.dsl.bot
 
-@OptIn(KordPreview::class)
+@OptIn(KordPreview::class, PrivilegedIntent::class)
 fun main() {
     val token = System.getenv("hentaibot_token")
 
@@ -16,7 +18,7 @@ fun main() {
         prefix { "!" }
 
         configure {
-            permissions(commandDefault = Permissions.EVERYONE)
+            intents = Intents.all
         }
     }
 }

@@ -12,7 +12,12 @@ import org.jetbrains.exposed.sql.transactions.transaction
 class ServerSettings(id: EntityID<Long>) : LongEntity(id) {
     companion object : LongEntityClass<ServerSettings>(ServerSettingsTable) {
         fun languageOf(guild: Guild?) =
-            transaction { findById(guild!!.id.value) ?: new(guild.id.value) {} }.serverLanguage
+            transaction { findById(guild!!.id.value.toLong()) ?: new(guild.id.value.toLong()) {} }.serverLanguage
+
+        fun findById(snowflake: Snowflake) =
+            findById(snowflake.value.toLong())
+        fun new(id: Snowflake, init: ServerSettings.() -> Unit): ServerSettings =
+            new(id.value.toLong(), init)
     }
 
     var serverLanguage by ServerSettingsTable.serverLanguage.transform(

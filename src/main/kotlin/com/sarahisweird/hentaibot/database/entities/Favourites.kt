@@ -10,7 +10,7 @@ class Favourites(id: EntityID<Int>) : IntEntity(id) {
     companion object : IntEntityClass<Favourites>(FavouritesTable)
 
     var userId: Snowflake by FavouritesTable.userId.transform(
-        toColumn = { it.value },
+        toColumn = { it.value.toLong() },
         toReal = { Snowflake(it) }
     )
 

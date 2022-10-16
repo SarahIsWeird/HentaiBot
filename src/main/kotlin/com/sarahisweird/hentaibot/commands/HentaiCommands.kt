@@ -8,33 +8,28 @@ import com.sarahisweird.hentaibot.database.entities.ServerSettings
 import com.sarahisweird.hentaibot.database.tables.FavouritesTable
 import com.sarahisweird.hentaibot.util.paginatedMenu
 import com.sarahisweird.hentaibot.util.waitUntilDone
-import dev.kord.common.annotation.KordPreview
 import dev.kord.common.entity.Snowflake
-import dev.kord.common.entity.optional.optional
 import dev.kord.core.behavior.channel.createMessage
-import dev.kord.core.behavior.interaction.*
+import dev.kord.core.behavior.interaction.response.*
 import dev.kord.core.entity.Guild
 import dev.kord.core.entity.interaction.ComponentInteraction
 import dev.kord.core.event.interaction.InteractionCreateEvent
-import dev.kord.rest.builder.interaction.actionRow
+import dev.kord.rest.NamedFile
+import dev.kord.rest.builder.message.create.actionRow
+import dev.kord.rest.builder.message.modify.actionRow
 import dev.kord.x.emoji.Emojis
-import kotlinx.coroutines.runBlocking
 import kotlinx.datetime.Clock
-import me.jakejmattson.discordkt.api.arguments.AnyArg
-import me.jakejmattson.discordkt.api.arguments.EveryArg
-import me.jakejmattson.discordkt.api.dsl.commands
-import me.jakejmattson.discordkt.api.dsl.listeners
-import me.jakejmattson.discordkt.api.extensions.button
+import me.jakejmattson.discordkt.arguments.AnyArg
+import me.jakejmattson.discordkt.commands.commands
+import me.jakejmattson.discordkt.dsl.listeners
+import me.jakejmattson.discordkt.extensions.button
 import okhttp3.OkHttpClient
-import okhttp3.internal.wait
 import org.jetbrains.exposed.sql.SortOrder
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.awt.image.BufferedImage
 import java.io.File
-import java.lang.Integer.min
 import javax.imageio.ImageIO
-import kotlin.concurrent.thread
 import kotlin.math.ceil
 
 private val client = OkHttpClient()
@@ -43,31 +38,17 @@ private val klaxon = Klaxon()
 private val sentHashes = mutableListOf<String>()
 private val tags = mutableListOf<List<String>>()
 
-@OptIn(KordPreview::class)
-private val publicInteractionResponses = mutableMapOf<Snowflake, PublicInteractionResponseBehavior>()
-
-@OptIn(KordPreview::class)
-private val ephemeralInteractionResponses = mutableMapOf<Snowflake, EphemeralInteractionResponseBehavior>()
+private val publicInteractionResponses = mutableMapOf<Snowflake, PublicMessageInteractionResponseBehavior>()
+private val ephemeralInteractionResponses = mutableMapOf<Snowflake, EphemeralMessageInteractionResponseBehavior>()
 
 private val file = File("composite.png")
 
-suspend fun createCompositeImageFromTags(
-    tags: List<String>,
-    guild: Guild?,
-    respond: suspend (String) -> Unit
-): List<Image>? {
-    val images = fetchRandomImages(
-        client,
-        klaxon,
-        tags,
-        sentHashes,
-        respond,
-        guild
-    ) ?: return null
+suspend fun createCompositeImageFromTags(tags: List<String>, guild: Guild?, respond: suspend (String) -> Unit): List<Image>? {
+    val images = fetchRandomImages(client, klaxon, tags, sentHashes, respond, guild) ?: return null
 
     val compositeImage = BufferedImage(
-        min(800, images.size * 200),
-        min(600, ceil(images.size / 4f).toInt() * 200),
+        800.coerceAtMost(images.size * 200),
+        600.coerceAtMost(ceil(images.size / 4f).toInt() * 200),
         BufferedImage.TYPE_INT_ARGB
     )
 
@@ -91,28 +72,34 @@ suspend fun createCompositeImageFromTags(
     return images
 }
 
-@OptIn(KordPreview::class)
-@Suppress("BlockingMethodInNonBlockingContext")
 fun hentaiCommands() = commands("Hentai") {
-    command("rule34", "r34") {
-        description = "Searches through rule34.xxx, based on tags. You can specify multiple tags."
-
-        execute(AnyArg.multiple()) {
-            channel.type()
+    slash("rule34", "Searches through rule34.xxx, based on tags. You can specify multiple tags.") {
+        execute(AnyArg("tags").multiple()) {
+            val interactionResponse = interaction?.deferPublicResponse()
 
             val bannedTags = transaction {
                 BannedTags.findByIdOrPut(author.id, ::mutableListOf).tags
             }
+
             val actualTags = args.first + bannedTags.map { "-$it" }
 
             val images = createCompositeImageFromTags(actualTags, guild, ::respond) ?: return@execute
-
             tags += actualTags
 
-            channel.createMessage {
+            interactionResponse?.respond {
                 addFile(file.toPath())
 
-                createButtons(images, guild, ::actionRow)
+                createButtons(images, guild, this::actionRow)
+
+                actionRow {
+                    button(null, Emojis.arrowsCounterclockwise) {
+                        customId = "r34rl-${tags.size - 1}"
+                    }
+                }
+            } ?: channel.createMessage {
+                addFile(file.toPath())
+
+                createButtons(images, guild, this::actionRow)
 
                 actionRow {
                     button(null, Emojis.arrowsCounterclockwise) {
@@ -123,13 +110,10 @@ fun hentaiCommands() = commands("Hentai") {
         }
     }
 
-    command("Likes") {
-        description = "Lists your liked pictures."
-
+    slash("Likes", "Lists your liked pictures.") {
         execute {
             val likedCount = transaction {
-                Favourites.find { FavouritesTable.userId eq author.id.value }
-                    .count().toInt()
+                Favourites.find { FavouritesTable.userId eq author.id.value.toLong() }.count().toInt()
             }
 
             if (likedCount == 0) {
@@ -143,14 +127,13 @@ fun hentaiCommands() = commands("Hentai") {
                 pageCreator { _, next ->
                     author {
                         name = "HentaiBot"
-                        icon = "https://cdn.discordapp.com/avatars" +
-                                "/881886640254095371/9562bd55dfd4969c403c73c69c89b591.webp"
+                        icon = "https://cdn.discordapp.com/avatars/881886640254095371/9562bd55dfd4969c403c73c69c89b591.webp"
                     }
 
-                    title = "${ServerSettings.languageOf(guild).picture} ${next + 1}/${limit + 1}"
+                    title = ServerSettings.languageOf(guild).picture + " ${next + 1}/${limit + 1}"
 
                     transaction {
-                        val res = Favourites.find { FavouritesTable.userId eq forWhom.value }
+                        val res = Favourites.find { FavouritesTable.userId eq forWhom.value.toLong() }
                             .orderBy(FavouritesTable.timestamp to SortOrder.DESC)
                             .elementAt(next)
 
@@ -161,21 +144,22 @@ fun hentaiCommands() = commands("Hentai") {
 
                 actionRowCreator { _, next ->
                     button(null, Emojis.brokenHeart) {
-                        customId = "r34ul-${transaction {
-                            Favourites.find { FavouritesTable.userId eq forWhom.value }
-                            .orderBy(FavouritesTable.timestamp to SortOrder.DESC)
-                            .elementAt(next).id
-                        }}"
+                        val id = transaction {
+                            Favourites.find { FavouritesTable.userId eq forWhom.value.toLong() }
+                                .orderBy(FavouritesTable.timestamp to SortOrder.DESC)
+                                .elementAt(next)
+                                .id
+                        }
+
+                        customId = "r34ul-$id"
                     }
                 }
             }
         }
     }
 
-    command("bannedTags", "bt", "blacklist", "bl") {
-        description = "Modifies your blacklist."
-
-        execute(AnyArg.optional(""), AnyArg.multiple()) {
+    slash("blacklist", "Modifies your blacklist.") {
+        execute(AnyArg("operation").autocomplete { listOf("add", "remove", "show") }, AnyArg("tags").multiple().optional(listOf())) {
             when (args.first) {
                 "add" -> {
                     transaction {
@@ -214,7 +198,6 @@ fun hentaiCommands() = commands("Hentai") {
     }
 }
 
-@OptIn(KordPreview::class, dev.kord.common.annotation.KordUnsafe::class)
 fun hentaiCommandListener() = listeners {
     on<InteractionCreateEvent> {
         val ci = interaction as? ComponentInteraction ?: return@on
@@ -230,17 +213,18 @@ fun hentaiCommandListener() = listeners {
     }
 }
 
-@OptIn(KordPreview::class)
-suspend fun InteractionCreateEvent.onImageSelect(ci: ComponentInteraction) {
-    val interactionResponse = publicInteractionResponses.getOrPut(
-        ci.message!!.id
-    ) { ci.acknowledgePublicDeferredMessageUpdate() }
+suspend fun onImageSelect(ci: ComponentInteraction) {
+    val interactionResponse = publicInteractionResponses.getOrPut(ci.message.id) {
+        ci.deferPublicMessageUpdate()
+    }
 
-    runCatching { ci.acknowledgePublicDeferredMessageUpdate() }
+    runCatching {
+        ci.deferPublicMessageUpdate()
+    }
 
     val split = ci.componentId.split("-")
 
-    interactionResponse.followUp {
+    interactionResponse.createPublicFollowup {
         content = "https://api-cdn.rule34.xxx/images/${split[1]}/${split[2]}"
 
         actionRow {
@@ -255,32 +239,31 @@ suspend fun InteractionCreateEvent.onImageSelect(ci: ComponentInteraction) {
     }
 }
 
-@OptIn(KordPreview::class, dev.kord.common.annotation.KordUnsafe::class)
 suspend fun onImageLink(ci: ComponentInteraction) {
-    val interactionResponse = ephemeralInteractionResponses.getOrPut(
-        ci.message!!.id
-    ) { ci.acknowledgeEphemeralDeferredMessageUpdate() }
+    val interactionResponse = ephemeralInteractionResponses.getOrPut(ci.message.id) {
+        ci.deferEphemeralMessageUpdate()
+    }
 
     val split = ci.componentId.split("-")
 
-    interactionResponse.followUpPublic {
+    interactionResponse.createEphemeralFollowup {
         content = "https://rule34.xxx/index.php?page=post&s=view&id=${split[1]}"
     }
 }
 
-@OptIn(KordPreview::class)
 suspend fun onImageLike(ci: ComponentInteraction) {
-    val interactionResponse = ephemeralInteractionResponses.getOrPut(
-        ci.message!!.id
-    ) { ci.acknowledgeEphemeralDeferredMessageUpdate() }
+    val interactionResponse = ephemeralInteractionResponses.getOrPut(ci.message.id) {
+        ci.deferEphemeralMessageUpdate()
+    }
 
     val split = ci.componentId.split("-")
 
     val inserted = transaction {
-        if (!Favourites.find {
-                (FavouritesTable.userId eq ci.user.id.value) and
-                        (FavouritesTable.postId eq split[3].toInt())
-            }.empty()) return@transaction false
+        val favourite = Favourites.find {
+            (FavouritesTable.userId eq ci.user.id.value.toLong()) and (FavouritesTable.postId eq split[3].toInt())
+        }
+
+        if (!favourite.empty()) return@transaction false
 
         Favourites.new {
             userId = ci.user.id
@@ -292,17 +275,17 @@ suspend fun onImageLike(ci: ComponentInteraction) {
         return@transaction true
     }
 
-    interactionResponse.followUpEphemeral {
-        content = if (inserted) ServerSettings.languageOf(ci.message?.getGuild()).addedToLikes
-        else ServerSettings.languageOf(ci.message?.getGuild()).alreadyLiked
+    interactionResponse.createEphemeralFollowup {
+        content = ServerSettings.languageOf(ci.message.getGuild()).let {
+            if (inserted) it.addedToLikes else it.alreadyLiked
+        }
     }
 }
 
-@OptIn(KordPreview::class)
 suspend fun onImageUnlike(ci: ComponentInteraction) {
-    val interactionResponse = ephemeralInteractionResponses.getOrPut(
-        ci.message!!.id
-    ) { ci.acknowledgeEphemeralDeferredMessageUpdate() }
+    val interactionResponse = ephemeralInteractionResponses.getOrPut(ci.message.id) {
+        ci.deferEphemeralMessageUpdate()
+    }
 
     val split = ci.componentId.split("-")
 
@@ -310,40 +293,35 @@ suspend fun onImageUnlike(ci: ComponentInteraction) {
         Favourites.findById(split[1].toInt())?.delete()
     }
 
-    ci.message?.delete()
-    interactionResponse.followUpEphemeral {
-        content = ServerSettings.languageOf(ci.message?.getGuild()).likeRemoved
+    interactionResponse.createEphemeralFollowup {
+        content = ServerSettings.languageOf(ci.message.getGuild()).likeRemoved
     }
 }
 
-@OptIn(KordPreview::class)
 suspend fun onImageReload(ci: ComponentInteraction) {
-    val interactionResponse = publicInteractionResponses.getOrPut(
-        ci.message!!.id
-    ) { ci.acknowledgePublicDeferredMessageUpdate() }
+    val interactionResponse = publicInteractionResponses.getOrPut(ci.message.id) {
+        ci.deferPublicMessageUpdate()
+    }
+
+    ci.message.channel.type()
 
     val split = ci.componentId.split("-")
-
-    ci.message?.channel?.type()
     val tagsIndex = split[1].toInt()
 
     if (tagsIndex !in tags.indices) {
-        ci.message?.channel?.createMessage(
-            ServerSettings.languageOf(ci.message?.getGuild()).somethingWentWrong
-        )
+        val errorMessage = ServerSettings.languageOf(ci.message.getGuild()).somethingWentWrong
+        ci.message.channel.createMessage(errorMessage)
 
         return
     }
 
-    val images = createCompositeImageFromTags(tags[tagsIndex], ci.message?.getGuild()) {
-        ci.message?.channel?.createMessage(it)
-    } ?: return
+    val images = createCompositeImageFromTags(tags[tagsIndex], ci.message.getGuild(), ci.message.channel::createMessage) ?: return
 
-    interactionResponse.followUp {
+    interactionResponse.createPublicFollowup {
         files.clear()
-        files += "composite.png" to file.inputStream()
+        files += NamedFile("composite.png", file.inputStream())
 
-        createButtons(images, ci.message?.getGuild(), ::actionRow)
+        createButtons(images, ci.message.getGuild(), this::actionRow)
 
         actionRow {
             button(null, Emojis.arrowsCounterclockwise) {

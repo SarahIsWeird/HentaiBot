@@ -8,11 +8,10 @@ import com.sksamuel.scrimage.ImmutableImage
 import dev.kord.common.annotation.KordPreview
 import dev.kord.core.entity.Guild
 import dev.kord.rest.builder.component.ActionRowBuilder
-import dev.kord.rest.builder.message.MessageCreateBuilder
 import dev.kord.x.emoji.Emojis
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
-import me.jakejmattson.discordkt.api.extensions.button
+import me.jakejmattson.discordkt.extensions.button
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.awt.Color

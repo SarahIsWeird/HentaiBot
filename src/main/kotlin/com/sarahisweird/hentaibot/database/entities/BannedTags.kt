@@ -12,7 +12,7 @@ class BannedTags(id: EntityID<Int>) : IntEntity(id) {
         fun findByIdOrPut(id: Snowflake, supplier: () -> List<String>) =
             transaction {
                 find {
-                    BannedTagsTable.userId eq id.value
+                    BannedTagsTable.userId eq id.value.toLong()
                 }.firstOrNull() ?: new {
                     userId = id
                     tags = supplier()
@@ -21,7 +21,7 @@ class BannedTags(id: EntityID<Int>) : IntEntity(id) {
     }
 
     var userId by BannedTagsTable.userId.transform(
-        toColumn = { it.value },
+        toColumn = { it.value.toLong() },
         toReal = { Snowflake(it) }
     )
     var tags by BannedTagsTable.tags.transform(

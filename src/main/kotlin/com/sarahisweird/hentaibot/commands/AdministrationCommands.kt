@@ -1,20 +1,21 @@
 package com.sarahisweird.hentaibot.commands
 
-import com.sarahisweird.hentaibot.Permissions
 import com.sarahisweird.hentaibot.database.entities.ServerSettings
 import com.sarahisweird.hentaibot.entryMenu
 import com.sarahisweird.hentaibot.i18n.Languages
+import dev.kord.common.entity.Permission
+import dev.kord.common.entity.Permissions
 import dev.kord.core.behavior.channel.createMessage
-import me.jakejmattson.discordkt.api.arguments.AnyArg
-import me.jakejmattson.discordkt.api.dsl.commands
+import me.jakejmattson.discordkt.arguments.AnyArg
+import me.jakejmattson.discordkt.commands.commands
 import org.jetbrains.exposed.sql.transactions.transaction
 
 fun administrationCommands() = commands("Administration") {
-    command("Eintritt") {
-        requiredPermission = Permissions.BOT_OWNER
+    text("Eintritt") {
+        requiredPermissions = Permissions(Permission.Administrator)
 
         execute {
-            message?.delete()
+            message.delete()
 
             channel.createMessage {
                 entryMenu()
@@ -22,8 +23,8 @@ fun administrationCommands() = commands("Administration") {
         }
     }
 
-    command("Language") {
-        requiredPermission = Permissions.BOT_OWNER
+    text("Language") {
+        requiredPermissions = Permissions(Permission.Administrator)
 
         execute(AnyArg) {
             val newLanguage: Languages
@@ -36,14 +37,14 @@ fun administrationCommands() = commands("Administration") {
             }
 
             transaction {
-                val column = ServerSettings.findById(guild!!.id.value)
+                val column = ServerSettings.findById(guild.id)
 
                 if (column != null) {
                     column.serverLanguage = newLanguage.resources
                     return@transaction
                 }
 
-                ServerSettings.new(guild!!.id.value) {
+                ServerSettings.new(guild.id) {
                     serverLanguage = newLanguage.resources
                 }
             }
